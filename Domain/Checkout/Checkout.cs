@@ -10,7 +10,7 @@ public class Checkout : ICheckout
     private readonly Dictionary<string, Product> _products;
     private readonly Dictionary<string, int> _scannedItems;
 
-    public Checkout(Dictionary<string, Product> products)
+    internal Checkout(Dictionary<string, Product> products)
     {
         _products = products;
         _scannedItems = new Dictionary<string, int>();
@@ -49,7 +49,7 @@ public class Checkout : ICheckout
                 {
                     if (quantity >= offer.SpecialQuantity)
                     {
-                        GetOfferPriceTotal(totalPrice, quantity, product, offer);
+                        totalPrice += GetOfferPriceTotal(totalPrice, quantity, product, offer);
                     }
                 }
             }
