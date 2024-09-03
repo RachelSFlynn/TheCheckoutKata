@@ -10,7 +10,7 @@ public class Checkout : ICheckout
     private readonly Dictionary<string, Product> _products;
     private readonly Dictionary<string, int> _scannedItems;
 
-    internal Checkout(Dictionary<string, Product> products)
+    public Checkout(Dictionary<string, Product> products)
     {
         _products = products;
         _scannedItems = new Dictionary<string, int>();
