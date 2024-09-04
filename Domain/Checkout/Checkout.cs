@@ -1,43 +1,57 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Domain.Products;
+﻿using Domain.Products;
 
 namespace Domain.Checkout;
 
 public class Checkout : ICheckout
 {
     private readonly Dictionary<string, Product> _products;
-    private readonly Dictionary<string, int> _scannedItems;
+
+    public Dictionary<string, int> ScannedItems { get; set; }
 
     public Checkout(Dictionary<string, Product> products)
     {
         _products = products;
-        _scannedItems = new Dictionary<string, int>();
+        ScannedItems = new Dictionary<string, int>();
     }
 
-    public void Scan(string item)
+    /// <summary>
+    /// Scans the products and adds it to the dictionary of scanned products.
+    /// </summary>
+    /// <param name="product">The product to scan</param>
+    /// <exception cref="ArgumentException">Throws an exception if something is wrong, focus here is on if the product doesnt exist</exception>
+    public void Scan(string product)
     {
-        if (!_products.ContainsKey(item))
+        try
         {
-            throw new ArgumentException($"Invalid SKU: {item}");
-        }
+            if (!_products.ContainsKey(product))
+            {
+                throw new ArgumentException($"Invalid SKU: {product}");
+            }
 
-        if (_scannedItems.ContainsKey(item))
-        {
-            _scannedItems[item]++;
+            if (ScannedItems.ContainsKey(product))
+            {
+                ScannedItems[product]++;
+            }
+            else
+            {
+                ScannedItems[product] = 1;
+            }
         }
-        else
+        catch (Exception e)
         {
-            _scannedItems[item] = 1;
+            throw new ArgumentException($"Failed to scan {product} with error: {e.Message}");
         }
     }
 
+    /// <summary>
+    /// Gets the total price including discounts
+    /// </summary>
+    /// <returns>The total price</returns>
     public decimal GetTotalPrice()
     {
         decimal totalPrice = 0;
 
-        foreach (var item in _scannedItems)
+        foreach (var item in ScannedItems)
         {
             var sku = item.Key;
             var quantity = item.Value;
@@ -45,12 +59,24 @@ public class Checkout : ICheckout
 
             if (product.Offers.Any())
             {
-                foreach (var offer in product.Offers)
+                var remainingQuantity = quantity;
+                var sortedOffers = product.Offers.OrderByDescending(o => o.SpecialQuantity).ToList();
+
+                foreach (var offer in sortedOffers)
                 {
-                    if (quantity >= offer.SpecialQuantity)
+                    var matchingOffer = sortedOffers.FirstOrDefault(o => remainingQuantity >= o.SpecialQuantity);
+
+                    if (matchingOffer != null)
                     {
-                        totalPrice += GetOfferPriceTotal(totalPrice, quantity, product, offer);
+                        int offerCount = remainingQuantity / offer.SpecialQuantity;
+                        totalPrice += offerCount * offer.SpecialPrice;
+                        remainingQuantity %= offer.SpecialQuantity;
                     }
+                }
+
+                if (remainingQuantity > 0)
+                {
+                    totalPrice += remainingQuantity * product.UnitPrice;
                 }
             }
             else
@@ -62,16 +88,23 @@ public class Checkout : ICheckout
         return totalPrice;
     }
 
-    private decimal GetOfferPriceTotal(decimal totalPrice, int quantity, Product product, PricingRule offer)
+    /// <summary>
+    /// Gets the current subtotal which is the full price before discounts.
+    /// </summary>
+    /// <returns><The subtotal/returns>
+    public decimal GetSubTotal()
     {
-        int specialPriceCount = quantity / offer.SpecialQuantity;
-        decimal specialPriceTotal = specialPriceCount * offer.SpecialPrice;
+        decimal subTotal = 0;
 
-        int regularPriceCount = quantity % offer.SpecialQuantity;
-        decimal regularPriceTotal = regularPriceCount * product.UnitPrice;
+        foreach (var item in ScannedItems)
+        {
+            var sku = item.Key;
+            var quantity = item.Value;
+            var product = _products[sku];
 
-        totalPrice += specialPriceTotal + regularPriceTotal;
+            subTotal += quantity * product.UnitPrice;
+        }
 
-        return totalPrice;
+        return subTotal;
     }
 }

@@ -3,5 +3,8 @@
 public interface ICheckout
 {
     void Scan(string item);
+
     decimal GetTotalPrice();
+
+    decimal GetSubTotal();
 }
